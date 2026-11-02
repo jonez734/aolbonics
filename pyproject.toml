@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aolbonics"
+version = "0.1.0"
+description = "jargon - glossary of BBS and internet slang, served through bed/zoid6"
+requires-python = ">=3.9,<3.13"
+license = "GPL-3.0-or-later"
+authors = [
+    { name = "zoidtechnologies.com", email = "jargon@projects.zoidtechnologies.com" },
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: End Users",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Communications :: BBS",
+    "Topic :: Terminals",
+]
+dependencies = [
+    "bed",
+    "bbsengine6>=9.0",
+    "zoid6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "ruff",
+]
+
+[project.scripts]
+jargon = "jargon.__main__:_main"
+
+[project.urls]
+Homepage = "https://zoidtechnologies.com/jargon/"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["jargon*"]
+namespaces = false
+
+[tool.setuptools.package-data]
+jargon = ["sql/*.sql", "sql/objects.json"]
