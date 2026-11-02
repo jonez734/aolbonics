@@ -13,9 +13,9 @@ Operations:
 No moniker means no identity, so every write is refused. Reads and the load gate stay open.
 """
 
-from __future__ import annotations
 
-from typing import Any, Optional
+import argparse
+from typing import Any
 
 LOAD_OPS = frozenset({"run"})
 READ_OPS = frozenset({"lookup"})
@@ -46,17 +46,24 @@ def member_flags(args: Any, moniker: str, **kwargs: Any) -> set[str]:
     return {name.upper() for name, data in flags.items() if (data or {}).get("value") is True}
 
 
-def access(args: Any, op: str, *, moniker: Optional[str] = None, **kwargs: Any) -> bool:
-    """Return True when ``moniker`` may perform ``op``.
+def access(args: argparse.Namespace, op: str, **kwargs: dict) -> bool | None:
+    """Return True when the caller may perform ``op``.
 
-    The caller passes only the operation and the moniker. Flags are read from the engine. ``run`` is
-    module.check's load gate: it has no caller, so it needs no moniker. Writes require one.
+    ``module.check`` calls this as ``access(args, op, **kwargs)``, so the stub contract is ``**kwargs``. The
+    caller's moniker is read from ``kwargs["moniker"]``. It is required: a call without it raises
+    ``TypeError`` (``run`` is the load gate and needs no caller). ``moniker=None`` is allowed and is refused
+    for writes. Flags are read from the engine.
     """
-    if op in LOAD_OPS or op in READ_OPS:
+    if op in LOAD_OPS:
+        return True
+    if "moniker" not in kwargs:
+        raise TypeError("access() requires a moniker keyword argument")
+    moniker = kwargs["moniker"]
+    if op in READ_OPS:
         return True
     if op not in WRITE_OPS:
         return False
     if not moniker:
         return False
-    flags = member_flags(args, moniker, **kwargs)
+    flags = member_flags(args, moniker)
     return SYSOP_FLAG in flags or WRITE_FLAG in flags

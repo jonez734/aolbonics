@@ -1,12 +1,12 @@
-"""jargon.access: who may read and write. Only the moniker is passed in; flags come from the engine.
+"""jargon.rules: who may read and write. Only the moniker is passed in; flags come from the engine.
 
 member_flags is patched so the rule runs without a database.
 """
 
 import pytest
 
-import jargon.access as acc
-from jargon.access import access
+import jargon.rules as acc
+from jargon.rules import access
 
 
 def _flags(mapping):
@@ -83,6 +83,15 @@ def test_module_load_gate_run_passes_without_a_caller():
 
 @pytest.mark.unit
 @pytest.mark.parametrize("op", ["create", "update"])
-def test_writes_without_a_moniker_argument_are_refused(op, members):
+def test_missing_moniker_argument_raises(op, members):
+    """moniker is required: omitting it is a TypeError, not a silent refusal."""
     members({"root": {"SYSOP"}})
-    assert access(None, op) is False
+    with pytest.raises(TypeError, match="moniker"):
+        access(None, op)
+
+
+@pytest.mark.unit
+def test_access_matches_module_check_stub():
+    """module.check requires access(args, op, **kwargs); jargon's must pass that signature check."""
+    from bbsengine6.module import _check_func_signature, _stub_access
+    assert _check_func_signature(access, _stub_access)

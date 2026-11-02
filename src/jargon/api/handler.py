@@ -21,7 +21,7 @@ from typing import Any, Dict, Optional
 from bbsengine6 import database, io
 from bbsengine6.backend import objects
 
-from jargon.access import access
+from jargon.rules import access
 
 MSG_LOOKUP = "jargon_lookup"
 MSG_CREATE = "jargon_create"

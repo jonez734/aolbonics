@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import jargon.access as acc
+import jargon.rules as acc
 from jargon.api.handler import JargonService
 
 SQL = Path(__file__).parents[1] / "src" / "jargon" / "sql" / "schema.sql"
