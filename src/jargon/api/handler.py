@@ -31,7 +31,7 @@ MSG_STARTUP = "jargon_startup"
 MESSAGE_TYPES = [MSG_LOOKUP, MSG_CREATE, MSG_UPDATE, MSG_INSTALL, MSG_STARTUP]
 
 _TERM_COLUMNS = (
-    "slug, term, definition, origin, datecreatedlocal, dateupdatedlocal"
+    "slug, term, definition, origin, nsfw, datecreatedlocal, dateupdatedlocal"
 )
 
 PACKAGE = "jargon"
@@ -112,6 +112,7 @@ class JargonService:
             "term": row["term"],
             "definition": row["definition"],
             "origin": row["origin"],
+            "nsfw": row["nsfw"],
             # Local times are NULL for a member with no time zone (the engine's views behave the same way).
             "datecreated": _iso(row["datecreatedlocal"]),
             "dateupdated": _iso(row["dateupdatedlocal"]),
@@ -170,14 +171,18 @@ class JargonService:
         origin = self._text(message, "origin")
         if not term or not definition:
             return _error(request_id, "jargon_create requires term and definition")
+        # nsfw is optional; omitted means the column default (true).
+        nsfw = message.get("nsfw", True)
+        if not isinstance(nsfw, bool):
+            return _error(request_id, "nsfw must be true or false")
         with database.connect(self.args) as conn:
             with database.cursor(conn=conn) as cur:
                 cur.execute(
-                    "insert into jargon.__terms (slug, term, definition, origin) "
-                    "values (%s, %s, %s, %s) "
+                    "insert into jargon.__terms (slug, term, definition, origin, nsfw) "
+                    "values (%s, %s, %s, %s, %s) "
                     "on conflict (slug) do nothing "
                     "returning slug",
-                    (slug, term, definition, origin or None),
+                    (slug, term, definition, origin or None, nsfw),
                 )
                 if cur.fetchone() is None:
                     return _error(request_id, f"term {slug!r} already exists")
@@ -194,8 +199,13 @@ class JargonService:
             return err
         # Only the fields present in the request change. A null origin clears it.
         changes = {}
-        for key in ("term", "definition", "origin"):
+        for key in ("term", "definition", "origin", "nsfw"):
             if key in message:
+                if key == "nsfw":
+                    if not isinstance(message["nsfw"], bool):
+                        return _error(request_id, "nsfw must be true or false")
+                    changes[key] = message["nsfw"]
+                    continue
                 value = self._text(message, key)
                 if key in ("term", "definition") and not value:
                     return _error(request_id, f"{key} cannot be empty")
@@ -204,7 +214,7 @@ class JargonService:
                 else:
                     changes[key] = value
         if not changes:
-            return _error(request_id, "jargon_update needs at least one of term, definition, origin")
+            return _error(request_id, "jargon_update needs at least one of term, definition, origin, nsfw")
         assignments = ", ".join(f"{col} = %s" for col in changes)
         params = list(changes.values()) + [slug]
         with database.connect(self.args) as conn:

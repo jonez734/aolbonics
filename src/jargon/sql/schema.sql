@@ -7,9 +7,13 @@ create table if not exists jargon.__terms (
     term text not null,
     definition text not null,
     origin text,
+    nsfw boolean not null default true,
     datecreated timestamptz not null default now(),
     dateupdated timestamptz not null default now()
 );
+
+-- Upgrade a table created before the nsfw column existed. Existing terms default to nsfw = true.
+alter table jargon.__terms add column if not exists nsfw boolean not null default true;
 
 grant all on jargon.__terms to term, sysop;
 
