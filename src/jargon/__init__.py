@@ -10,7 +10,9 @@ import argparse
 __version__ = "0.1.0"
 
 MODULE_NAME = "jargon"
-MODULE_PATH = "jargon.api.handler"
+MODULE_PATH = "jargon"
+# The zoid6 sub-router that serves jargon messages. Separate from the module contract above.
+ROUTER_PATH = "jargon.api.handler"
 
 
 def init(args: argparse.Namespace, **kwargs: dict) -> bool | None:
@@ -32,7 +34,7 @@ def buildargs(args: argparse.Namespace, **kwargs: dict) -> argparse.ArgumentPars
 
 
 def main(args: argparse.Namespace, **kwargs: dict) -> bool | None:
-    """Module entry point. jargon's work runs in the zoid6 sub-router (MODULE_PATH); this has nothing to run."""
+    """Module entry point. jargon's work runs in the zoid6 sub-router (ROUTER_PATH); this has nothing to run."""
     return True
 
 
