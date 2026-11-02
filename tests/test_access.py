@@ -1,57 +1,75 @@
-"""jargon.access: who may read and write jargon entries.
+"""jargon.access: who may read and write. Only the moniker is passed in; flags come from the engine.
 
-The rule is tested without a database by supplying has_write_flag directly.
+member_flags is patched so the rule runs without a database.
 """
 
 import pytest
 
+import jargon.access as acc
 from jargon.access import access
+
+
+def _flags(mapping):
+    """A member_flags stand-in: returns the flag set for each moniker in ``mapping``."""
+    return lambda args, moniker, **kw: set(mapping.get(moniker, ()))
+
+
+@pytest.fixture
+def members(monkeypatch):
+    def use(mapping):
+        monkeypatch.setattr(acc, "member_flags", _flags(mapping))
+    return use
 
 
 @pytest.mark.unit
 @pytest.mark.parametrize("moniker", [None, "", "anyone"])
-def test_lookup_is_open_to_everyone(moniker):
-    assert access(None, "lookup", moniker=moniker) is True
-
-
-@pytest.mark.unit
-def test_sysop_may_create_and_update_without_the_flag():
-    assert access(None, "create", moniker="root", is_sysop=True, has_write_flag=False) is True
-    assert access(None, "update", moniker="root", is_sysop=True, has_write_flag=False) is True
-
-
-@pytest.mark.unit
-def test_member_with_the_flag_may_create_and_update():
-    assert access(None, "create", moniker="alice", has_write_flag=True) is True
-    assert access(None, "update", moniker="alice", has_write_flag=True) is True
-
-
-@pytest.mark.unit
-def test_member_without_the_flag_is_refused():
-    assert access(None, "create", moniker="bob", has_write_flag=False) is False
-    assert access(None, "update", moniker="bob", has_write_flag=False) is False
+def test_lookup_is_open_to_everyone(moniker, members):
+    members({})
+    assert access(None, "lookup", moniker) is True
 
 
 @pytest.mark.unit
 @pytest.mark.parametrize("op", ["create", "update"])
-def test_unauthenticated_writes_are_refused(op):
-    """No moniker means no identity: a write is refused even if a flag would otherwise allow it."""
-    assert access(None, op, moniker=None, is_sysop=True, has_write_flag=True) is False
-    assert access(None, op, moniker="", has_write_flag=True) is False
+def test_sysop_may_write(op, members):
+    members({"root": {"SYSOP"}})
+    assert access(None, op, "root") is True
 
 
 @pytest.mark.unit
-def test_unknown_operation_is_refused():
-    assert access(None, "delete", moniker="root", is_sysop=True) is False
+@pytest.mark.parametrize("op", ["create", "update"])
+def test_jargon_flag_may_write(op, members):
+    members({"alice": {"JARGON"}})
+    assert access(None, op, "alice") is True
 
 
 @pytest.mark.unit
-def test_flag_lookup_happens_only_when_not_supplied(monkeypatch):
-    called = []
-    import jargon.access as acc
-    monkeypatch.setattr(acc, "_member_has_write_flag", lambda args, m: called.append(m) or True)
-    assert access(None, "create", moniker="carol") is True
-    assert called == ["carol"]
-    called.clear()
-    assert access(None, "create", moniker="carol", has_write_flag=False) is False
-    assert called == []
+@pytest.mark.parametrize("op", ["create", "update"])
+def test_member_without_a_flag_is_refused(op, members):
+    members({"bob": {"APPROVED"}})
+    assert access(None, op, "bob") is False
+
+
+@pytest.mark.unit
+def test_unknown_member_is_refused(members):
+    members({})
+    assert access(None, "create", "ghost") is False
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("moniker", [None, ""])
+def test_unauthenticated_writes_are_refused(moniker, members):
+    members({"root": {"SYSOP", "JARGON"}})
+    assert access(None, "create", moniker) is False
+
+
+@pytest.mark.unit
+def test_unknown_operation_is_refused(members):
+    members({"root": {"SYSOP"}})
+    assert access(None, "delete", "root") is False
+
+
+@pytest.mark.unit
+def test_flag_names_are_matched_case_insensitively(members, monkeypatch):
+    """member_flags upper-cases names, so a stored lower-case flag still matches."""
+    monkeypatch.setattr(acc, "member_flags", lambda args, m, **kw: {n.upper() for n in ("jargon",)})
+    assert access(None, "create", "alice") is True
