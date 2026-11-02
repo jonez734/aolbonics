@@ -33,7 +33,7 @@ _TERM_COLUMNS = (
 )
 
 PACKAGE = "jargon"
-GRANTS_FILE = "sql/grants.sql"
+GRANTS_NOTE = "the database owner or zoid6_role_migration.sql (see sql/grants.sql)"
 
 # Privileges the bed's role needs for jargon (see sql/grants.sql). Checked read-only with the
 # has_*_privilege functions, so a missing grant is reported, not silently failed later.
@@ -201,7 +201,7 @@ class JargonService:
                 return _error(
                     request_id,
                     f"jargon_install: the database role lacks {', '.join(missing)}. "
-                    f"Have a privileged role run {GRANTS_FILE} once, then retry.",
+                    f"Ask {GRANTS_NOTE} to grant them, then retry.",
                 )
             for filename in ("schema.sql", "seed.sql"):
                 if database.importsql(self.args, filename, conn=conn, package=PACKAGE) is False:
@@ -224,7 +224,7 @@ class JargonService:
                 "present": len(report.present),
                 "total": len(manifest.objects),
                 "missing": missing,
-                "grants_file": GRANTS_FILE if missing_grants else None,
+                "grants_file": "sql/grants.sql" if missing_grants else None,
             },
         )
 
