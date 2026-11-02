@@ -7,6 +7,7 @@ run_with_connection so the socket closes when the call ends.
 
 from __future__ import annotations
 
+import os
 from typing import Any, Dict, Optional
 
 from bed.client.connection import run_with_connection
@@ -18,11 +19,39 @@ class JargonError(Exception):
     """A jargon request failed. The message is safe to print as-is."""
 
 
+def _token_path(args: Any) -> str:
+    """Where the bed login token lives: --token-file, else $XDG_RUNTIME_DIR/bed.token (bed's own default)."""
+    explicit = getattr(args, "token_file", None)
+    if explicit:
+        return explicit
+    runtime = os.environ.get("XDG_RUNTIME_DIR", "")
+    return os.path.join(runtime, "bed.token") if runtime else ""
+
+
+def _read_token(args: Any) -> str:
+    """The bearer token from the login file, or "" when there is none or it cannot be read."""
+    path = _token_path(args)
+    if not path:
+        return ""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return fh.read().strip()
+    except OSError:
+        return ""
+
+
 def request(args: Any, message: Dict[str, Any]) -> Dict[str, Any]:
     """Send one jargon request to bed and return the reply.
 
+    A write carries the login token so bed can verify the caller. Jargon never makes up a token; with no
+    readable token the write is sent without one and bed refuses it as unauthenticated.
+
     Raises JargonError if bed is unreachable or the reply is an error.
     """
+    if message.get("type") in ("jargon_create", "jargon_update"):
+        token = _read_token(args)
+        if token:
+            message = {**message, "token": token}
     connection = get_bed_connection(args)
     try:
         reply = run_with_connection(connection, lambda: connection.send(message))
