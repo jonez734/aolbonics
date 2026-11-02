@@ -173,8 +173,12 @@ class JargonService:
         return _reply(MSG_UPDATE, request_id, {"term": self._term_dict(row)})
 
     def _install(self, request_id: Any) -> Dict[str, Any]:
-        database.importsql(self.args, "schema.sql", package=PACKAGE)
-        database.importsql(self.args, "seed.sql", package=PACKAGE)
+        # importsql returns False on failure instead of raising, and needs an explicit connection.
+        # Run both files on one connection and report any failure rather than claiming success.
+        with database.connect(self.args) as conn:
+            for filename in ("schema.sql", "seed.sql"):
+                if database.importsql(self.args, filename, conn=conn, package=PACKAGE) is False:
+                    return _error(request_id, f"jargon_install failed while loading {filename}")
         return _reply(MSG_INSTALL, request_id, {"message": "jargon installed"})
 
     def _startup(self, request_id: Any) -> Dict[str, Any]:
