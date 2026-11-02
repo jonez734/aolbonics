@@ -55,6 +55,11 @@ def _missing_grants(conn: Any) -> list:
     return missing
 
 
+def _iso(value: Any) -> Optional[str]:
+    """ISO text for a timestamp, or None when the value is NULL."""
+    return value.isoformat() if value is not None else None
+
+
 def _error(request_id: Any, message: str) -> Dict[str, Any]:
     reply: Dict[str, Any] = {"type": "error", "message": message}
     if request_id is not None:
@@ -105,8 +110,9 @@ class JargonService:
             "term": row["term"],
             "definition": row["definition"],
             "origin": row["origin"],
-            "datecreated": row["datecreatedlocal"].isoformat(),
-            "dateupdated": row["dateupdatedlocal"].isoformat(),
+            # Local times are NULL for a member with no time zone (the engine's views behave the same way).
+            "datecreated": _iso(row["datecreatedlocal"]),
+            "dateupdated": _iso(row["dateupdatedlocal"]),
         }
 
     @staticmethod
