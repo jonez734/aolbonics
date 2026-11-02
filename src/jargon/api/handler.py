@@ -5,9 +5,11 @@ zoid6 loads this module from ``services.jargon.modulepath`` and calls
 answers one request type with a ``<type>_result`` message.
 
 Request types:
-    jargon_lookup    {"slug": str}          -> {"term": {...} | None}
-    jargon_install   {}                     -> {"message": str}
-    jargon_startup   {}                     -> {"status", "present", "total", "missing"}
+    jargon_lookup    {"slug": str}                                -> {"term": {...} | None}
+    jargon_create    {"slug", "term", "definition", "origin"?}    -> {"term": {...}}
+    jargon_update    {"slug", "term"?, "definition"?, "origin"?}  -> {"term": {...}}
+    jargon_install   {}                                           -> {"message": str}
+    jargon_startup   {}                                           -> {"status", "present", "total", "missing"}
 """
 
 from __future__ import annotations
@@ -20,9 +22,15 @@ from bbsengine6 import database, io
 from bbsengine6.backend import objects
 
 MSG_LOOKUP = "jargon_lookup"
+MSG_CREATE = "jargon_create"
+MSG_UPDATE = "jargon_update"
 MSG_INSTALL = "jargon_install"
 MSG_STARTUP = "jargon_startup"
-MESSAGE_TYPES = [MSG_LOOKUP, MSG_INSTALL, MSG_STARTUP]
+MESSAGE_TYPES = [MSG_LOOKUP, MSG_CREATE, MSG_UPDATE, MSG_INSTALL, MSG_STARTUP]
+
+_TERM_COLUMNS = (
+    "slug, term, definition, origin, datecreatedlocal, dateupdatedlocal"
+)
 
 PACKAGE = "jargon"
 
@@ -55,6 +63,10 @@ class JargonService:
         try:
             if msg_type == MSG_LOOKUP:
                 return self._lookup(message, request_id)
+            if msg_type == MSG_CREATE:
+                return self._create(message, request_id)
+            if msg_type == MSG_UPDATE:
+                return self._update(message, request_id)
             if msg_type == MSG_INSTALL:
                 return self._install(request_id)
             if msg_type == MSG_STARTUP:
@@ -64,30 +76,101 @@ class JargonService:
             return _error(request_id, f"{msg_type} failed: {exc}")
         return None
 
-    def _lookup(self, message: Dict[str, Any], request_id: Any) -> Dict[str, Any]:
+    @staticmethod
+    def _term_dict(row: Any) -> Optional[Dict[str, Any]]:
+        if row is None:
+            return None
+        return {
+            "slug": row["slug"],
+            "term": row["term"],
+            "definition": row["definition"],
+            "origin": row["origin"],
+            "datecreated": row["datecreatedlocal"].isoformat(),
+            "dateupdated": row["dateupdatedlocal"].isoformat(),
+        }
+
+    @staticmethod
+    def _slug(message: Dict[str, Any], request_id: Any, who: str) -> Any:
+        """Return (slug, None) or (None, error reply)."""
         slug = message.get("slug")
         if not isinstance(slug, str) or not slug.strip():
-            return _error(request_id, "jargon_lookup requires a slug")
-        slug = slug.strip().lower()
+            return None, _error(request_id, f"{who} requires a slug")
+        return slug.strip().lower(), None
+
+    @staticmethod
+    def _text(message: Dict[str, Any], key: str) -> Optional[str]:
+        value = message.get(key)
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise ValueError(f"{key} must be a string")
+        return value.strip()
+
+    def _lookup(self, message: Dict[str, Any], request_id: Any) -> Dict[str, Any]:
+        slug, err = self._slug(message, request_id, "jargon_lookup")
+        if err:
+            return err
+        with database.connect(self.args) as conn:
+            with database.cursor(conn=conn) as cur:
+                cur.execute(f"select {_TERM_COLUMNS} from jargon.terms where slug = %s", (slug,))
+                row = cur.fetchone()
+        return _reply(MSG_LOOKUP, request_id, {"term": self._term_dict(row)})
+
+    def _create(self, message: Dict[str, Any], request_id: Any) -> Dict[str, Any]:
+        slug, err = self._slug(message, request_id, "jargon_create")
+        if err:
+            return err
+        term = self._text(message, "term")
+        definition = self._text(message, "definition")
+        origin = self._text(message, "origin")
+        if not term or not definition:
+            return _error(request_id, "jargon_create requires term and definition")
         with database.connect(self.args) as conn:
             with database.cursor(conn=conn) as cur:
                 cur.execute(
-                    "select slug, term, definition, origin, datecreatedlocal, dateupdatedlocal "
-                    "from jargon.terms where slug = %s",
-                    (slug,),
+                    "insert into jargon.__terms (slug, term, definition, origin) "
+                    "values (%s, %s, %s, %s) "
+                    "on conflict (slug) do nothing "
+                    "returning slug",
+                    (slug, term, definition, origin or None),
                 )
+                if cur.fetchone() is None:
+                    return _error(request_id, f"term {slug!r} already exists")
+                cur.execute(f"select {_TERM_COLUMNS} from jargon.terms where slug = %s", (slug,))
                 row = cur.fetchone()
-        term = None
-        if row is not None:
-            term = {
-                "slug": row["slug"],
-                "term": row["term"],
-                "definition": row["definition"],
-                "origin": row["origin"],
-                "datecreated": row["datecreatedlocal"].isoformat(),
-                "dateupdated": row["dateupdatedlocal"].isoformat(),
-            }
-        return _reply(MSG_LOOKUP, request_id, {"term": term})
+        return _reply(MSG_CREATE, request_id, {"term": self._term_dict(row)})
+
+    def _update(self, message: Dict[str, Any], request_id: Any) -> Dict[str, Any]:
+        slug, err = self._slug(message, request_id, "jargon_update")
+        if err:
+            return err
+        # Only the fields present in the request change. A null origin clears it.
+        changes = {}
+        for key in ("term", "definition", "origin"):
+            if key in message:
+                value = self._text(message, key)
+                if key in ("term", "definition") and not value:
+                    return _error(request_id, f"{key} cannot be empty")
+                if key == "origin":
+                    changes[key] = value or None
+                else:
+                    changes[key] = value
+        if not changes:
+            return _error(request_id, "jargon_update needs at least one of term, definition, origin")
+        assignments = ", ".join(f"{col} = %s" for col in changes)
+        params = list(changes.values()) + [slug]
+        with database.connect(self.args) as conn:
+            with database.cursor(conn=conn) as cur:
+                cur.execute(
+                    f"update jargon.__terms set {assignments}, dateupdated = now() "
+                    "where slug = %s returning slug",
+                    params,
+                )
+                if cur.fetchone() is None:
+                    return _error(request_id, f"no term {slug!r}")
+                cur.execute(f"select {_TERM_COLUMNS} from jargon.terms where slug = %s", (slug,))
+                row = cur.fetchone()
+        return _reply(MSG_UPDATE, request_id, {"term": self._term_dict(row)})
 
     def _install(self, request_id: Any) -> Dict[str, Any]:
         database.importsql(self.args, "schema.sql", package=PACKAGE)

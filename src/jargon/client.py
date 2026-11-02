@@ -7,7 +7,7 @@ run_with_connection so the socket closes when the call ends.
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from bed.client.connection import run_with_connection
 from bed.client.exceptions import BedUnavailable
@@ -38,6 +38,25 @@ def request(args: Any, message: Dict[str, Any]) -> Dict[str, Any]:
 
 def lookup(args: Any, slug: str) -> Dict[str, Any]:
     return request(args, {"type": "jargon_lookup", "slug": slug})
+
+
+def create(args: Any, slug: str, term: str, definition: str, origin: Optional[str] = None) -> Dict[str, Any]:
+    message: Dict[str, Any] = {
+        "type": "jargon_create",
+        "slug": slug,
+        "term": term,
+        "definition": definition,
+    }
+    if origin is not None:
+        message["origin"] = origin
+    return request(args, message)
+
+
+def update(args: Any, slug: str, **fields: Optional[str]) -> Dict[str, Any]:
+    """Update only the fields passed. Pass origin=None explicitly to clear it."""
+    message: Dict[str, Any] = {"type": "jargon_update", "slug": slug}
+    message.update(fields)
+    return request(args, message)
 
 
 def install(args: Any) -> Dict[str, Any]:

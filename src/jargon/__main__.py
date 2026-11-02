@@ -33,6 +33,20 @@ def buildparser() -> argparse.ArgumentParser:
         action="store_true",
         help="check that every jargon object exists; exit 1 if not installed or partial",
     )
+    parser.add_argument(
+        "--create",
+        action="store_true",
+        help="create a term; requires --slug, --term, --definition (--origin optional)",
+    )
+    parser.add_argument(
+        "--update",
+        action="store_true",
+        help="update a term; requires --slug and at least one of --term, --definition, --origin",
+    )
+    parser.add_argument("--slug", help="term slug, e.g. wtf")
+    parser.add_argument("--term", dest="term_field", metavar="TERM", help="display name for --create/--update")
+    parser.add_argument("--definition", help="definition for --create/--update")
+    parser.add_argument("--origin", help="origin for --create/--update (use an empty string to clear)")
     parser.add_argument("term", nargs="?", help="term to look up, e.g. wtf")
     return parser
 
@@ -44,10 +58,34 @@ def _print_usage(parser: argparse.ArgumentParser) -> None:
 def _run(argv: Optional[List[str]], parser: argparse.ArgumentParser) -> int:
     args = parser.parse_args(argv)
 
-    if args.install and args.startup:
-        parser.error("--install and --startup cannot be used together")
-    if (args.install or args.startup) and args.term:
-        parser.error("a term cannot be given with --install or --startup")
+    modes = [m for m in ("install", "startup", "create", "update") if getattr(args, m)]
+    if len(modes) > 1:
+        parser.error(f"--{modes[0]} and --{modes[1]} cannot be used together")
+    if modes and args.term:
+        parser.error(f"a term cannot be given with --{modes[0]}")
+
+    if args.create:
+        if not args.slug or not args.term_field or not args.definition:
+            parser.error("--create requires --slug, --term and --definition")
+        reply = client.create(args, args.slug, args.term_field, args.definition, args.origin)
+        print(f"created {reply['term']['slug']}")
+        return 0
+
+    if args.update:
+        if not args.slug:
+            parser.error("--update requires --slug")
+        fields = {}
+        if args.term_field is not None:
+            fields["term"] = args.term_field
+        if args.definition is not None:
+            fields["definition"] = args.definition
+        if args.origin is not None:
+            fields["origin"] = args.origin or None
+        if not fields:
+            parser.error("--update needs at least one of --term, --definition, --origin")
+        reply = client.update(args, args.slug, **fields)
+        print(f"updated {reply['term']['slug']}")
+        return 0
 
     if args.install:
         reply = client.install(args)
