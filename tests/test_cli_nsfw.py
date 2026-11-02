@@ -21,19 +21,19 @@ def _run(argv):
 
 @pytest.mark.unit
 def test_create_with_nsfw_sends_true():
-    code, sent = _run(["--create", "--slug", "x", "--term", "X", "--definition", "d", "--nsfw"])
+    code, sent = _run(["--create", "--slug", "x", "--display-name", "X", "--definition", "d", "--nsfw"])
     assert code == 0 and sent["nsfw"] is True
 
 
 @pytest.mark.unit
 def test_create_with_no_nsfw_sends_false():
-    code, sent = _run(["--create", "--slug", "x", "--term", "X", "--definition", "d", "--no-nsfw"])
+    code, sent = _run(["--create", "--slug", "x", "--display-name", "X", "--definition", "d", "--no-nsfw"])
     assert code == 0 and sent["nsfw"] is False
 
 
 @pytest.mark.unit
 def test_create_without_flag_sends_no_nsfw_so_the_default_applies():
-    code, sent = _run(["--create", "--slug", "x", "--term", "X", "--definition", "d"])
+    code, sent = _run(["--create", "--slug", "x", "--display-name", "X", "--definition", "d"])
     assert code == 0 and "nsfw" not in sent
 
 

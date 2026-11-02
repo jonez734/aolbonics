@@ -36,15 +36,15 @@ def buildparser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--create",
         action="store_true",
-        help="create a term; requires --slug, --term, --definition (--origin optional)",
+        help="create a term; requires --slug, --display-name, --definition (--origin optional)",
     )
     parser.add_argument(
         "--update",
         action="store_true",
-        help="update a term; requires --slug and at least one of --term, --definition, --origin",
+        help="update a term; requires --slug and at least one of --display-name, --definition, --origin",
     )
     parser.add_argument("--slug", help="term slug, e.g. wtf")
-    parser.add_argument("--term", dest="term_field", metavar="TERM", help="display name for --create/--update")
+    parser.add_argument("--display-name", dest="term_field", metavar="NAME", help="display name for --create/--update (the term column)")
     parser.add_argument("--definition", help="definition for --create/--update")
     parser.add_argument("--origin", help="origin for --create/--update (use an empty string to clear)")
     nsfw = parser.add_mutually_exclusive_group()
@@ -71,7 +71,7 @@ def _run(argv: Optional[List[str]], parser: argparse.ArgumentParser) -> int:
 
     if args.create:
         if not args.slug or not args.term_field or not args.definition:
-            parser.error("--create requires --slug, --term and --definition")
+            parser.error("--create requires --slug, --display-name and --definition")
         reply = client.create(args, args.slug, args.term_field, args.definition, args.origin, nsfw=args.nsfw)
         print(f"created {reply['term']['slug']}")
         return 0
@@ -89,7 +89,7 @@ def _run(argv: Optional[List[str]], parser: argparse.ArgumentParser) -> int:
         if args.nsfw is not None:
             fields["nsfw"] = args.nsfw
         if not fields:
-            parser.error("--update needs at least one of --term, --definition, --origin, --nsfw/--no-nsfw")
+            parser.error("--update needs at least one of --display-name, --definition, --origin, --nsfw/--no-nsfw")
         reply = client.update(args, args.slug, **fields)
         print(f"updated {reply['term']['slug']}")
         return 0
