@@ -311,6 +311,10 @@ class MessageRouter:
     ) -> None:
         self.args = args
         self.service = JargonService(args)
+        # zoid6 does not call the package's init(), so register the module here, inside the daemon.
+        from jargon import init as _init
+
+        _init(args)
 
     def register_all(self, server: Any) -> None:
         server.register_service(self.service, MESSAGE_TYPES)

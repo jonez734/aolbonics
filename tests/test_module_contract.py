@@ -53,3 +53,15 @@ def test_init_registers_jargon(monkeypatch):
 def test_module_name_and_path_are_constants():
     assert jargon.MODULE_NAME == "jargon"
     assert jargon.MODULE_PATH == "jargon.api.handler"
+
+
+@pytest.mark.unit
+def test_message_router_registers_jargon_on_construction(monkeypatch):
+    """zoid6 never calls the package init(); the sub-router's constructor must register jargon."""
+    from jargon.api import handler
+    calls = []
+    monkeypatch.setattr(handler, "_init_for_router", lambda args: calls.append(args), raising=False)
+    import jargon
+    monkeypatch.setattr(jargon, "init", lambda args, **kw: calls.append(args) or True)
+    handler.MessageRouter(args="ARGS")
+    assert calls, "MessageRouter did not register jargon"
