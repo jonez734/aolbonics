@@ -26,7 +26,9 @@ classifiers = [
 ]
 dependencies = [
     "bed",
-    "bbsengine6>=9.0",
+    # jargon imports bbsengine6.backend.objects (the manifest check), which
+    # only exists in bbsengine6 builds from 2026-11 onward.
+    "bbsengine6>=0.4.0.dev202611",
     "zoid6",
 ]
 
