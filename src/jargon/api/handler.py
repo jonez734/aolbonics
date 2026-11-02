@@ -154,7 +154,7 @@ class JargonService:
     def _authorized(self, op: str, message: Dict[str, Any], request_id: Any) -> Optional[Dict[str, Any]]:
         """Return an error reply when the caller may not perform ``op``; None when allowed."""
         caller = self._caller(message)
-        if access(self.args, op, caller.get("moniker")):
+        if access(self.args, op, moniker=caller.get("moniker")):
             return None
         return _error(request_id, f"jargon_{op}: not permitted for this caller")
 
