@@ -25,14 +25,20 @@ WRITE_FLAG = "JARGON"
 
 
 def member_flags(args: Any, moniker: str, **kwargs: Any) -> set[str]:
-    """The flag names currently set for ``moniker``, as a set of upper-case names.
+    """The flag names set on ``moniker``'s member record, as upper-case names.
 
-    Read from the engine through bbsengine6's member module (the same source ``member.build`` uses).
-    Imported here so the module loads without a database.
+    Loads the record with bbsengine6's ``member.getbymoniker`` (the same record ``member.getcurrent``
+    returns, for a named member) and reads its ``flags``. A pool is needed for that load; jargon
+    takes one from ``database.getpool``. Imported here so the module loads without a database.
     """
+    from bbsengine6 import database
     from bbsengine6 import member as libmember
 
-    flags = libmember.getflags(args, moniker, **kwargs) or {}
+    pool = kwargs.get("pool") or database.getpool(args)
+    rec = libmember.getbymoniker(args, moniker, pool=pool)
+    if not rec:
+        return set()
+    flags = rec.get("flags") or {}
     return {name.upper() for name, data in flags.items() if (data or {}).get("value") is True}
 
 
