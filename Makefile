@@ -17,5 +17,13 @@ venv:
 		"$(VENV_PYTHON)" -m venv "$(VENV_DIR)" || { echo "venv: could not create $(VENV_DIR)" >&2; exit 1; }; \
 	fi
 	"$(VENV_DIR)/bin/python" -m pip install --upgrade pip
-	"$(VENV_DIR)/bin/python" -m pip install --upgrade --no-deps .
+	"$(VENV_DIR)/bin/python" -m pip install --upgrade build
+	@work="$$(mktemp -d)" && \
+	trap 'rm -rf "$$work"' EXIT && \
+	mkdir "$$work/src" && \
+	tar -C . --exclude=./build --exclude=./dist --exclude='*.egg-info' --exclude=__pycache__ --exclude=.git -cf - . | tar -C "$$work/src" -xf - && \
+	wheels="$$work/out" && \
+	"$(VENV_DIR)/bin/python" -m build --wheel --outdir "$$wheels" "$$work/src" && \
+	whl="$$(ls "$$wheels"/*.whl)" && \
+	"$(VENV_DIR)/bin/python" -m pip install --upgrade --force-reinstall --no-deps "$$whl"
 	@echo "installed jargon into $(VENV_DIR)"
