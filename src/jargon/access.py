@@ -5,17 +5,19 @@ flags from the engine (the same record bbsengine6's member module builds), and d
 owns the rule, so it can check whatever flags it needs without the engine defining them.
 
 Operations:
-    lookup   read a term            anyone who reaches the bed
-    create   add a term             the sysop, or a member with the JARGON flag
-    update   change a term          the sysop, or a member with the JARGON flag
+    run      load the module         module.check's load gate; no caller, so no moniker needed
+    lookup   read a term             anyone who reaches the bed
+    create   add a term              the sysop, or a member with the JARGON flag
+    update   change a term           the sysop, or a member with the JARGON flag
 
-No moniker means no identity, so every write is refused. Reads stay open.
+No moniker means no identity, so every write is refused. Reads and the load gate stay open.
 """
 
 from __future__ import annotations
 
 from typing import Any, Optional
 
+LOAD_OPS = frozenset({"run"})
 READ_OPS = frozenset({"lookup"})
 WRITE_OPS = frozenset({"create", "update"})
 
@@ -44,12 +46,13 @@ def member_flags(args: Any, moniker: str, **kwargs: Any) -> set[str]:
     return {name.upper() for name, data in flags.items() if (data or {}).get("value") is True}
 
 
-def access(args: Any, op: str, *, moniker: Optional[str], **kwargs: Any) -> bool:
+def access(args: Any, op: str, *, moniker: Optional[str] = None, **kwargs: Any) -> bool:
     """Return True when ``moniker`` may perform ``op``.
 
-    The caller passes only the operation and the moniker. Flags are read from the engine.
+    The caller passes only the operation and the moniker. Flags are read from the engine. ``run`` is
+    module.check's load gate: it has no caller, so it needs no moniker. Writes require one.
     """
-    if op in READ_OPS:
+    if op in LOAD_OPS or op in READ_OPS:
         return True
     if op not in WRITE_OPS:
         return False

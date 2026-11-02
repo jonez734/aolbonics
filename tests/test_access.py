@@ -73,3 +73,16 @@ def test_flag_names_are_matched_case_insensitively(members, monkeypatch):
     """member_flags upper-cases names, so a stored lower-case flag still matches."""
     monkeypatch.setattr(acc, "member_flags", lambda args, m, **kw: {n.upper() for n in ("jargon",)})
     assert access(None, "create", moniker="alice") is True
+
+
+@pytest.mark.unit
+def test_module_load_gate_run_passes_without_a_caller():
+    """module.check calls access(args, "run") with no moniker; it must pass."""
+    assert access(None, "run") is True
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("op", ["create", "update"])
+def test_writes_without_a_moniker_argument_are_refused(op, members):
+    members({"root": {"SYSOP"}})
+    assert access(None, op) is False
