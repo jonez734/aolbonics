@@ -7,9 +7,9 @@ create table if not exists jargon.__terms (
     term text not null,
     definition text not null,
     origin text,
-    nsfw boolean not null default true,
     datecreated timestamptz not null default now(),
-    dateupdated timestamptz not null default now()
+    dateupdated timestamptz not null default now(),
+    nsfw boolean not null default true
 );
 
 -- Upgrade a table created before the nsfw column existed. Existing terms default to nsfw = true.

@@ -56,3 +56,20 @@ def test_update_rejects_a_non_boolean_nsfw(monkeypatch):
     svc = JargonService(args=object())
     reply = svc._update({"_caller": {"moniker": "root"}, "slug": "x", "nsfw": 1}, "r3")
     assert reply["type"] == "error" and "nsfw" in reply["message"]
+
+
+@pytest.mark.unit
+def test_nsfw_is_last_in_the_table_definition():
+    """A fresh table and an upgraded one must have the same column order, so nsfw comes last."""
+    text = SQL.read_text()
+    block = text[text.index("create table if not exists jargon.__terms"):]
+    block = block[:block.index(");")]
+    cols = [line.strip().split()[0] for line in block.splitlines()[1:] if line.strip()]
+    assert cols[-1] == "nsfw", cols
+
+
+@pytest.mark.unit
+def test_view_lists_nsfw_last_after_the_existing_columns():
+    text = SQL.read_text()
+    view = text[text.index("create or replace view jargon.terms"):]
+    assert "t.nsfw" in view and view.index("t.nsfw") > view.index("dateupdatedlocal")
