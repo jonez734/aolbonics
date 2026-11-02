@@ -44,7 +44,7 @@ def member_flags(args: Any, moniker: str, **kwargs: Any) -> set[str]:
     return {name.upper() for name, data in flags.items() if (data or {}).get("value") is True}
 
 
-def access(args: Any, op: str, *, moniker: Optional[str] = None, **kwargs: Any) -> bool:
+def access(args: Any, op: str, *, moniker: Optional[str], **kwargs: Any) -> bool:
     """Return True when ``moniker`` may perform ``op``.
 
     The caller passes only the operation and the moniker. Flags are read from the engine.
