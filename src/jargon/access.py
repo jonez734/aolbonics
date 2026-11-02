@@ -27,9 +27,11 @@ WRITE_FLAG = "JARGON"
 def member_flags(args: Any, moniker: str, **kwargs: Any) -> set[str]:
     """The flag names set on ``moniker``'s member record, as upper-case names.
 
-    Loads the record with bbsengine6's ``member.getbymoniker`` (the same record ``member.getcurrent``
-    returns, for a named member) and reads its ``flags``. A pool is needed for that load; jargon
-    takes one from ``database.getpool``. Imported here so the module loads without a database.
+    Loads the record with bbsengine6's ``member.getbymoniker``. ``member.getcurrent`` is not used: it
+    resolves the moniker from the process's OS login, which in the zoid6 daemon is the daemon's own
+    account, not the bed client. The caller's moniker comes from bed's session. A pool is needed for
+    the load; jargon takes one from ``database.getpool``. Imported here so the module loads without a
+    database.
     """
     from bbsengine6 import database
     from bbsengine6 import member as libmember
