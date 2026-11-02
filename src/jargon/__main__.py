@@ -100,6 +100,8 @@ def _run(argv: Optional[List[str]], parser: argparse.ArgumentParser) -> int:
             print(f"  missing: {label}", file=sys.stderr)
         if reply.get("grants_file"):
             print("  fix: ask the database owner or zoid6_role_migration.sql to grant them (see sql/grants.sql)", file=sys.stderr)
+        if reply.get("upgrade_file"):
+            print(f"  fix: run the schema upgrade (jargon --install, or apply {reply['upgrade_file']} as the table owner)", file=sys.stderr)
         return 0 if status == "installed" else 1
 
     if args.term:

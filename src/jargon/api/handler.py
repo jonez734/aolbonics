@@ -46,6 +46,28 @@ _REQUIRED_GRANTS = (
 )
 
 
+# Columns the jargon tables must have, checked by --startup. A table created before a column was added
+# has no such column until the schema upgrade runs; --startup reports it instead of passing.
+_REQUIRED_COLUMNS = (
+    ("jargon", "__terms", "nsfw"),
+)
+
+
+def _missing_columns(conn: Any) -> list:
+    """Return labels for required columns that are absent from their table (read-only)."""
+    missing = []
+    for schema, table, column in _REQUIRED_COLUMNS:
+        row = conn.execute(
+            "select exists (select 1 from information_schema.columns "
+            "where table_schema = %s and table_name = %s and column_name = %s)",
+            (schema, table, column),
+        ).fetchone()
+        present = row[0] if isinstance(row, (tuple, list)) else next(iter(row.values()))
+        if not present:
+            missing.append(f"column {schema}.{table}.{column}")
+    return missing
+
+
 def _missing_grants(conn: Any) -> list:
     """Return the labels of required privileges the connected role does not have."""
     missing = []
@@ -252,8 +274,13 @@ class JargonService:
         with database.connect(self.args) as conn:
             report = objects.check_objects(self.args, manifest, conn=conn)
             missing_grants = _missing_grants(conn)
-        missing = [obj.label() for obj in report.missing] + [f"grant {g}" for g in missing_grants]
-        status = report.status if not missing_grants else "partial"
+            missing_columns = _missing_columns(conn)
+        missing = (
+            [obj.label() for obj in report.missing]
+            + [f"grant {g}" for g in missing_grants]
+            + missing_columns
+        )
+        status = report.status if not (missing_grants or missing_columns) else "partial"
         return _reply(
             MSG_STARTUP,
             request_id,
@@ -263,6 +290,7 @@ class JargonService:
                 "total": len(manifest.objects),
                 "missing": missing,
                 "grants_file": "sql/grants.sql" if missing_grants else None,
+                "upgrade_file": "sql/schema.sql" if missing_columns else None,
             },
         )
 
