@@ -29,10 +29,14 @@ dependencies = [
     # jargon imports bbsengine6.backend.objects (the manifest check), which
     # only exists in bbsengine6 builds from 2026-11 onward.
     "bbsengine6>=0.4.0.dev202611",
-    "zoid6",
 ]
 
 [project.optional-dependencies]
+# The zoid6 host installs this extra: the zoid6 daemon loads jargon.api.handler, which needs zoid6.
+# A plain install (any other BBS) is the bed client and needs no zoid6.
+zoid6 = [
+    "zoid6",
+]
 dev = [
     "pytest",
     "ruff",
