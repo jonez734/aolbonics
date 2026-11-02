@@ -33,6 +33,26 @@ _TERM_COLUMNS = (
 )
 
 PACKAGE = "jargon"
+GRANTS_FILE = "sql/grants.sql"
+
+# Privileges the bed's role needs for jargon (see sql/grants.sql). Checked read-only with the
+# has_*_privilege functions, so a missing grant is reported, not silently failed later.
+_REQUIRED_GRANTS = (
+    ("database CREATE on zoid6", "select has_database_privilege(current_user, current_database(), 'CREATE')"),
+    ("schema usage on engine", "select has_schema_privilege(current_user, 'engine', 'USAGE')"),
+    ("select on engine.__member", "select has_table_privilege(current_user, 'engine.__member', 'SELECT')"),
+)
+
+
+def _missing_grants(conn: Any) -> list:
+    """Return the labels of required privileges the connected role does not have."""
+    missing = []
+    for label, query in _REQUIRED_GRANTS:
+        row = conn.execute(query).fetchone()
+        value = row[0] if isinstance(row, (tuple, list)) else row.get(next(iter(row)))
+        if not value:
+            missing.append(label)
+    return missing
 
 
 def _error(request_id: Any, message: str) -> Dict[str, Any]:
@@ -176,6 +196,13 @@ class JargonService:
         # importsql returns False on failure instead of raising, and needs an explicit connection.
         # Run both files on one connection and report any failure rather than claiming success.
         with database.connect(self.args) as conn:
+            missing = _missing_grants(conn)
+            if missing:
+                return _error(
+                    request_id,
+                    f"jargon_install: the database role lacks {', '.join(missing)}. "
+                    f"Have a privileged role run {GRANTS_FILE} once, then retry.",
+                )
             for filename in ("schema.sql", "seed.sql"):
                 if database.importsql(self.args, filename, conn=conn, package=PACKAGE) is False:
                     return _error(request_id, f"jargon_install failed while loading {filename}")
@@ -186,14 +213,18 @@ class JargonService:
         manifest = objects.load_manifest(json.loads(text))
         with database.connect(self.args) as conn:
             report = objects.check_objects(self.args, manifest, conn=conn)
+            missing_grants = _missing_grants(conn)
+        missing = [obj.label() for obj in report.missing] + [f"grant {g}" for g in missing_grants]
+        status = report.status if not missing_grants else "partial"
         return _reply(
             MSG_STARTUP,
             request_id,
             {
-                "status": report.status,
+                "status": status,
                 "present": len(report.present),
                 "total": len(manifest.objects),
-                "missing": [obj.label() for obj in report.missing],
+                "missing": missing,
+                "grants_file": GRANTS_FILE if missing_grants else None,
             },
         )
 

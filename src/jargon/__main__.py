@@ -98,6 +98,8 @@ def _run(argv: Optional[List[str]], parser: argparse.ArgumentParser) -> int:
         print(f"jargon objects: {status} ({reply.get('present', '?')}/{reply.get('total', '?')})")
         for label in reply.get("missing", []):
             print(f"  missing: {label}", file=sys.stderr)
+        if reply.get("grants_file"):
+            print(f"  fix: have a privileged role run {reply['grants_file']} once", file=sys.stderr)
         return 0 if status == "installed" else 1
 
     if args.term:
