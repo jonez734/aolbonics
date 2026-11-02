@@ -21,6 +21,8 @@ from typing import Any, Dict, Optional
 from bbsengine6 import database, io
 from bbsengine6.backend import objects
 
+from jargon.access import access
+
 MSG_LOOKUP = "jargon_lookup"
 MSG_CREATE = "jargon_create"
 MSG_UPDATE = "jargon_update"
@@ -142,7 +144,29 @@ class JargonService:
                 row = cur.fetchone()
         return _reply(MSG_LOOKUP, request_id, {"term": self._term_dict(row)})
 
+    def _caller(self, message: Dict[str, Any]) -> Dict[str, Any]:
+        """The authenticated caller bed attaches to the message. Never read from the body alone.
+
+        bed does not attach an identity yet, so this returns an empty caller and every write is refused.
+        """
+        return message.get("_caller") or {}
+
+    def _authorized(self, op: str, message: Dict[str, Any], request_id: Any) -> Optional[Dict[str, Any]]:
+        """Return an error reply when the caller may not perform ``op``; None when allowed."""
+        caller = self._caller(message)
+        if access(
+            self.args,
+            op,
+            moniker=caller.get("moniker"),
+            is_sysop=bool(caller.get("is_sysop", False)),
+        ):
+            return None
+        return _error(request_id, f"jargon_{op}: not permitted for this caller")
+
     def _create(self, message: Dict[str, Any], request_id: Any) -> Dict[str, Any]:
+        denied = self._authorized("create", message, request_id)
+        if denied:
+            return denied
         slug, err = self._slug(message, request_id, "jargon_create")
         if err:
             return err
@@ -167,6 +191,9 @@ class JargonService:
         return _reply(MSG_CREATE, request_id, {"term": self._term_dict(row)})
 
     def _update(self, message: Dict[str, Any], request_id: Any) -> Dict[str, Any]:
+        denied = self._authorized("update", message, request_id)
+        if denied:
+            return denied
         slug, err = self._slug(message, request_id, "jargon_update")
         if err:
             return err
