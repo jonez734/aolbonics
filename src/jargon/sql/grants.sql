@@ -1,11 +1,11 @@
--- Privileges the bed's database role needs for jargon. Run once by a privileged role (the zoid6
--- database owner or a superuser), not by jargon --install: installing needs CREATE on the database,
--- and the glossary view reads engine.__member through CURRENT_USER.
+-- Not a jargon grant file. jargon has no privileges of its own to grant.
 --
---   psql -d zoid6 -f sql/grants.sql
+-- The database role the bed connects as (bed_zoid6) needs the following. They are set outside
+-- jargon, by the owner of the zoid6 database or by zoid6's role migration:
 --
--- Replace bed_zoid6 below if the bed connects as a different role.
-
-grant create on database zoid6 to bed_zoid6;
-grant usage on schema engine to bed_zoid6;
-grant select on engine.__member to bed_zoid6;
+--   grant create on database zoid6 to bed_zoid6;   -- server setup, owner only; needed by --install
+--   engine.__member select for bed_zoid6            -- needed by jargon.terms; belongs to the engine
+--                                                    -- or zoid6_role_migration.sql, not to jargon
+--
+-- jargon --install and --startup check these with read-only has_*_privilege calls and report what
+-- is missing. This file only records the list; it grants nothing.
