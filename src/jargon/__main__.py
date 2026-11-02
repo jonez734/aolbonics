@@ -47,6 +47,11 @@ def buildparser() -> argparse.ArgumentParser:
     parser.add_argument("--term", dest="term_field", metavar="TERM", help="display name for --create/--update")
     parser.add_argument("--definition", help="definition for --create/--update")
     parser.add_argument("--origin", help="origin for --create/--update (use an empty string to clear)")
+    nsfw = parser.add_mutually_exclusive_group()
+    nsfw.add_argument("--nsfw", dest="nsfw", action="store_true", default=None,
+                      help="mark the term NSFW (default on create); --update keeps the stored value unless given")
+    nsfw.add_argument("--no-nsfw", dest="nsfw", action="store_false",
+                      help="mark the term safe for work")
     parser.add_argument("term", nargs="?", help="term to look up, e.g. wtf")
     return parser
 
@@ -67,7 +72,7 @@ def _run(argv: Optional[List[str]], parser: argparse.ArgumentParser) -> int:
     if args.create:
         if not args.slug or not args.term_field or not args.definition:
             parser.error("--create requires --slug, --term and --definition")
-        reply = client.create(args, args.slug, args.term_field, args.definition, args.origin)
+        reply = client.create(args, args.slug, args.term_field, args.definition, args.origin, nsfw=args.nsfw)
         print(f"created {reply['term']['slug']}")
         return 0
 
@@ -81,8 +86,10 @@ def _run(argv: Optional[List[str]], parser: argparse.ArgumentParser) -> int:
             fields["definition"] = args.definition
         if args.origin is not None:
             fields["origin"] = args.origin or None
+        if args.nsfw is not None:
+            fields["nsfw"] = args.nsfw
         if not fields:
-            parser.error("--update needs at least one of --term, --definition, --origin")
+            parser.error("--update needs at least one of --term, --definition, --origin, --nsfw/--no-nsfw")
         reply = client.update(args, args.slug, **fields)
         print(f"updated {reply['term']['slug']}")
         return 0
