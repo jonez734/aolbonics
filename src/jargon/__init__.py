@@ -15,9 +15,9 @@ MODULE_PATH = "jargon.api.handler"
 
 def init(args: argparse.Namespace, **kwargs: dict) -> bool | None:
     """Register jargon with bbsengine6 so the module registry reports it."""
-    from bbsengine6 import register_module
+    from bbsengine6 import register
 
-    register_module(
+    register(
         name=MODULE_NAME,
         module_path=MODULE_PATH,
         version=__version__,

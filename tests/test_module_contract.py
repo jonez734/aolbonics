@@ -43,7 +43,7 @@ def test_init_registers_jargon(monkeypatch):
     monkeypatch.setattr(module, "_register_module",
                         lambda name, path, version, apis: seen.update(name=name, path=path, version=version))
     import bbsengine6
-    monkeypatch.setattr(bbsengine6, "register_module",
+    monkeypatch.setattr(bbsengine6, "register",
                         lambda **kw: seen.update(name=kw["name"], path=kw["module_path"], version=kw["version"]))
     assert jargon.init(argparse.Namespace(debug=False)) is True
     assert seen == {"name": "jargon", "path": "jargon.api.handler", "version": jargon.__version__}
