@@ -2,6 +2,10 @@
 
 `jargon` is a glossary of BBS and internet slang (`wtf`, `lart`, ...).
 
+The project is **Jargon**. Its repository and Python distribution are named `aolbonics`
+(`pip show aolbonics`), and its import package is `jargon`. Dependency listings show the
+distribution name, `aolbonics`, for this project.
+
 It is a bed client: the `jargon` command talks to a running bed daemon,
 and the server side is a zoid6 sub-router (`jargon.api.handler`). There
 is no direct database access from the command line.
