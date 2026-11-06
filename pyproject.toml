@@ -28,7 +28,7 @@ dependencies = [
     "bed",
     # jargon imports bbsengine6.backend.objects (the manifest check), which
     # only exists in bbsengine6 builds from 2026-11 onward.
-    "bbsengine6>=0.5.0.dev",
+    "bbsengine6>=0.5.0.dev20261106",
 ]
 
 [project.optional-dependencies]
