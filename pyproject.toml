@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "aolbonics"
+name = "jargon"
 version = "0.1.0"
 description = "jargon - glossary of BBS and internet slang, served through bed/zoid6"
 requires-python = ">=3.9,<3.13"
