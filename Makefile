@@ -6,7 +6,46 @@
 VENV_DIR ?= $(or $(DEPLOY_PREFIX),$(HOME)/.venv)
 VENV_PYTHON ?= python3.12
 
-.PHONY: venv
+.PHONY: venv build clean stale-build version
+
+# Move aside any build/dist/egg-info directory the project holds before a build.
+# A tree left by another user cannot be deleted, but renaming it needs only write
+# access to this project directory. The stale tree is kept under *.stale.<timestamp>.
+# Same pattern as casino's Makefile (stale-build -> clean -> build).
+stale-build:
+	@ts=$$(date +%Y%m%d%H%M%S); \
+	for d in build dist src/*.egg-info src/jargon/*.egg-info *.egg-info; do \
+		for x in $$d; do \
+			[ -e "$$x" ] || continue; \
+			mv "$$x" "$$x.stale.$$ts" && echo "stale-build: moved $$x -> $$x.stale.$$ts"; \
+		done; \
+	done
+
+clean: stale-build
+	-rm -rf build dist
+	-rm -rf *.egg-info src/*.egg-info src/jargon/*.egg-info
+	-find . -type d -name __pycache__ -exec rm -rf {} +
+	-find . -type d -name .pytest_cache -exec rm -rf {} +
+	-find . -type d -name .ruff_cache -exec rm -rf {} +
+	-find . -type d -name .mypy_cache -exec rm -rf {} +
+
+# Wheel version is pyproject's static name/version; no stamp file to write.
+version:
+	@true
+
+# Make sure build/ exists with mode 1775 (sticky, not setgid) before invoking `python -m build`.
+# Same rule as casino's Makefile: a setgid build/ breaks bdist_wheel's dist-info rename under
+# NoNewPrivs. A build/ owned by another user is renamed aside first.
+PREPARE_BUILD = \
+	if [ -d $(1)/build ] && [ ! -O $(1)/build ]; then \
+		mv $(1)/build $(1)/build.stale.$$ 2>/dev/null || true; \
+	fi; \
+	mkdir -p $(1)/build && chmod g-s,+t $(1)/build
+
+# Build the wheel in place. clean (stale-build first) runs before every build.
+build: clean version
+	$(call PREPARE_BUILD,$(CURDIR))
+	python3 -m build --wheel --outdir dist .
 
 # Local venv install (no remote). Installs jargon into VENV_DIR so the
 # `jargon` command is on that venv's PATH. The package depends on bed,
